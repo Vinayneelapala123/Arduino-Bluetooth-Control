@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arduino Bluetooth Control</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 50px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 10px;
+      cursor: pointer;
+    }
+    #timePicker {
+      padding: 10px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Control Arduino via Bluetooth</h1>
+
+  <!-- Buttons for ON and OFF -->
+  <button id="onButton">ON (90°)</button>
+  <button id="offButton">OFF (0°)</button>
+
+  <!-- Time input to set time for automatic servo control -->
+  <h2>Set Time to Turn OFF</h2>
+  <input type="time" id="timePicker">
+  <button id="setTimeButton">Set Time</button>
+
+  <!-- Log output -->
+  <div id="log"></div>
+
+  <script>
+    let bluetoothDevice;
+    let bluetoothCharacteristic;
+
+    // Connect to Bluetooth when any button is clicked
+    async function connectBluetooth() {
+      try {
+        bluetoothDevice = await navigator.bluetooth.requestDevice({
+          filters: [{ services: ['00001101-0000-1000-8000-00805f9b34fb'] }] // Standard Bluetooth Serial service
+        });
+        const server = await bluetoothDevice.gatt.connect();
+        const service = await server.getPrimaryService('00001101-0000-1000-8000-00805f9b34fb');
+        bluetoothCharacteristic = await service.getCharacteristic('00001101-0000-1000-8000-00805f9b34fb');
+        log("Bluetooth connected");
+      } catch (error) {
+        log("Failed to connect: " + error);
+      }
+    }
+
+    // Function to send data to Arduino
+    async function sendData(data) {
+      if (!bluetoothCharacteristic) {
+        await connectBluetooth();
+      }
+      const encoder = new TextEncoder();
+      await bluetoothCharacteristic.writeValue(encoder.encode(data));
+      log(`Sent: ${data}`);
+    }
+
+    // Log function to display messages
+    function log(message) {
+      const logDiv = document.getElementById('log');
+      logDiv.innerHTML += message + '<br>';
+    }
+
+    // Event listeners for the buttons
+    document.getElementById('onButton').addEventListener('click', () => {
+      sendData('90'); // Send ON command
+    });
+
+    document.getElementById('offButton').addEventListener('click', () => {
+      sendData('0'); // Send OFF command
+    });
+
+    // Handle time setting
+    document.getElementById('setTimeButton').addEventListener('click', () => {
+      const time = document.getElementById('timePicker').value;
+      sendData(`TIME:${time}`);
+      log(`Time set to: ${time}`);
+    });
+  </script>
+
+</body>
+</html>
